@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -43,6 +44,41 @@ void kv_store_routing_test() {
     assert(!store.exists(""));
 
     std::cout << "KVStore routing test passed!\n";
+}
+
+void batch_and_ttl_test() {
+    using namespace std::chrono_literals;
+
+    kv::KVStore store;
+    const std::vector<kv::SetRequest> requests{
+        {"account:1", "cash", std::nullopt},
+        {"account:2", "margin", 100ms},
+        {"account:3", "restricted", std::nullopt},
+    };
+
+    assert(store.set_batch(requests) == kv::Status::OK);
+
+    const std::vector<kv::Key> keys{"account:3", "missing", "account:1"};
+    const auto results = store.get_batch(keys);
+    assert(results.size() == keys.size());
+    assert(results[0].value == "restricted");
+    assert(results[1].status == kv::Status::NOT_FOUND);
+    assert(results[2].value == "cash");
+
+    assert(store.set("temporary", "value", 10ms) == kv::Status::OK);
+    assert(store.get("temporary").value == "value");
+    std::this_thread::sleep_for(25ms);
+    assert(store.get("temporary").status == kv::Status::NOT_FOUND);
+    assert(!store.exists("temporary"));
+
+    const std::vector<kv::SetRequest> invalid_requests{
+        {"valid-key", "value", std::nullopt},
+        {"invalid-ttl", "value", 0ms},
+    };
+    assert(store.set_batch(invalid_requests) == kv::Status::INVALID_ARGUMENT);
+    assert(!store.exists("valid-key"));
+
+    std::cout << "Batch and TTL test passed!\n";
 }
 
 void concurrent_test() {
@@ -93,6 +129,7 @@ void concurrent_test() {
 }
 int main() {
     kv_store_routing_test();
+    batch_and_ttl_test();
     concurrent_test();
     return 0;
 }
