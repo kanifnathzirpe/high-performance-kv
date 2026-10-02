@@ -18,8 +18,8 @@ Status Shard::set_batch(std::span<const SetRequest> requests) {
         }
     }
 
-    const auto now = std::chrono::steady_clock::now();
     std::unique_lock lock(mutex_);
+    const auto now = std::chrono::steady_clock::now();
 
     for (const auto& request : requests) {
         const auto expires_at = request.ttl.has_value()

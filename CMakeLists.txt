@@ -28,6 +28,7 @@ option(KV_BUILD_BENCHMARKS "Build KVStore benchmarks" OFF)
 if(BUILD_TESTING)
     include(FetchContent)
 
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip

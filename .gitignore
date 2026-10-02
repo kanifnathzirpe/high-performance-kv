@@ -5,3 +5,6 @@ build/
 *.a
 *.so
 compile_commands.json
+
+# Alternate CMake build directories used by the documented workflows.
+build-*/
