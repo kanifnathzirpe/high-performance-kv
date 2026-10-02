@@ -2,9 +2,11 @@
 #include "kv/shard.hpp"
 
 #include <atomic>
+#include <barrier>
 #include <cassert>
 #include <chrono>
 #include <iostream>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -127,9 +129,90 @@ void concurrent_test() {
 
     std::cout << "Concurrent test passed!\n";
 }
+
+void kv_store_contention_stress_test() {
+    using namespace std::chrono_literals;
+
+    kv::KVStore store;
+
+    constexpr int kThreadCount = 32;
+    constexpr int kOperationsPerThread = 10'000;
+    constexpr int kSharedKeyCount = 64;
+
+    std::barrier start_line(kThreadCount);
+    std::atomic<int> completed{0};
+
+    std::vector<std::thread> threads;
+    threads.reserve(kThreadCount);
+
+    for (int thread_id = 0; thread_id < kThreadCount; ++thread_id) {
+        threads.emplace_back([&store, &start_line, &completed, thread_id]() {
+            std::minstd_rand generator(thread_id + 1);
+            start_line.arrive_and_wait();
+
+            for (int operation = 0; operation < kOperationsPerThread; ++operation) {
+                const kv::Key key =
+                    "shared:" + std::to_string(generator() % kSharedKeyCount);
+                const kv::Value value =
+                    "thread:" + std::to_string(thread_id) +
+                    ":operation:" + std::to_string(operation);
+
+                switch (generator() % 6) {
+                    case 0:
+                        assert(store.set(key, value) == kv::Status::OK);
+                        break;
+                    case 1: {
+                        const auto result = store.get(key);
+                        assert(result.status == kv::Status::OK ||
+                               result.status == kv::Status::NOT_FOUND);
+                        if (result.status == kv::Status::OK) {
+                            assert(result.value.has_value());
+                        }
+                        break;
+                    }
+                    case 2: {
+                        const auto status = store.remove(key);
+                        assert(status == kv::Status::OK ||
+                               status == kv::Status::NOT_FOUND);
+                        break;
+                    }
+                    case 3:
+                        static_cast<void>(store.exists(key));
+                        break;
+                    case 4:
+                        assert(store.set(key, value, 5ms) == kv::Status::OK);
+                        break;
+                    case 5: {
+                        const std::vector<kv::SetRequest> requests{
+                            {key, value, std::nullopt},
+                            {"shared:" +
+                                 std::to_string(generator() % kSharedKeyCount),
+                             value,
+                             5ms},
+                        };
+                        assert(store.set_batch(requests) == kv::Status::OK);
+                        break;
+                    }
+                }
+            }
+
+            ++completed;
+        });
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    assert(completed == kThreadCount);
+
+    std::cout << "KVStore contention stress test passed!\n";
+}
+
 int main() {
     kv_store_routing_test();
     batch_and_ttl_test();
     concurrent_test();
+    kv_store_contention_stress_test();
     return 0;
 }
