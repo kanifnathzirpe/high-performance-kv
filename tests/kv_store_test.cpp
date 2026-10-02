@@ -1,3 +1,4 @@
+#include "kv/kv_store.hpp"
 #include "kv/shard.hpp"
 
 #include <atomic>
@@ -5,6 +6,44 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+
+void kv_store_routing_test() {
+    kv::KVStore store;
+
+    const std::vector<std::pair<kv::Key, kv::Value>> entries{
+        {"user:1", "Ada"},
+        {"user:2", "Grace"},
+        {"price:AAPL", "227.48"},
+        {"price:MSFT", "415.26"},
+        {"session:abc", "active"},
+        {"session:def", "expired"},
+        {"order:1001", "open"},
+        {"order:1002", "filled"},
+    };
+
+    for (const auto& [key, value] : entries) {
+        assert(store.set(key, value) == kv::Status::OK);
+    }
+
+    for (const auto& [key, value] : entries) {
+        const auto result = store.get(key);
+        assert(result.status == kv::Status::OK);
+        assert(result.value == value);
+        assert(store.exists(key));
+    }
+
+    assert(store.remove("price:AAPL") == kv::Status::OK);
+    assert(!store.exists("price:AAPL"));
+    assert(store.get("price:AAPL").status == kv::Status::NOT_FOUND);
+    assert(store.remove("price:AAPL") == kv::Status::NOT_FOUND);
+
+    assert(store.set("", "invalid") == kv::Status::INVALID_ARGUMENT);
+    assert(store.get("").status == kv::Status::INVALID_ARGUMENT);
+    assert(store.remove("") == kv::Status::INVALID_ARGUMENT);
+    assert(!store.exists(""));
+
+    std::cout << "KVStore routing test passed!\n";
+}
 
 void concurrent_test() {
     kv::Shard shard;
@@ -53,6 +92,7 @@ void concurrent_test() {
     std::cout << "Concurrent test passed!\n";
 }
 int main() {
+    kv_store_routing_test();
     concurrent_test();
     return 0;
 }
