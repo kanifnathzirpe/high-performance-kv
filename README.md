@@ -16,4 +16,11 @@ The project focuses on:
 
 ## Status
 
-🚧 Day 1 — Core KV Engine
+🚧 Day 1 — Core KV Engine (Steps 1–10 complete)
+
+The current engine is in-memory and supports thread-safe CRUD operations,
+eight-way shard routing, batch writes, TTL expiry, automated tests, and
+benchmarks.
+
+See the [Day 1 architecture](docs/architecture.md) for the API, concurrency
+guarantees, build instructions, and baseline benchmark setup.
