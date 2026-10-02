@@ -23,6 +23,8 @@ target_include_directories(kv_store
 
 include(CTest)
 
+option(KV_BUILD_BENCHMARKS "Build KVStore benchmarks" OFF)
+
 if(BUILD_TESTING)
     include(FetchContent)
 
@@ -46,4 +48,28 @@ if(BUILD_TESTING)
 
     include(GoogleTest)
     gtest_discover_tests(kv_store_test)
+endif()
+
+if(KV_BUILD_BENCHMARKS)
+    include(FetchContent)
+
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        google_benchmark
+        URL https://github.com/google/benchmark/archive/refs/tags/v1.9.4.zip
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+
+    FetchContent_MakeAvailable(google_benchmark)
+
+    add_executable(kv_benchmark
+        benchmarks/kv_benchmark.cpp
+    )
+
+    target_link_libraries(kv_benchmark
+        PRIVATE
+            kv_store
+            benchmark::benchmark
+    )
 endif()
